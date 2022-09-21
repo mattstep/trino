@@ -15,6 +15,8 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.opentelemetry.api.OpenTelemetry;
+import io.trino.TestOpenTelemetryTracerFactory;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
@@ -172,7 +174,8 @@ public class TestCallTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                TestOpenTelemetryTracerFactory.getTestTracer());
     }
 
     public static void testingMethod()

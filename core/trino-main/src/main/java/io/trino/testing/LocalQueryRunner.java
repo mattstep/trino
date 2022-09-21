@@ -185,6 +185,7 @@ import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.ShowStatsRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.testing.PageConsumerOperator.PageConsumerOutputFactory;
+import io.trino.tracing.OpenTelemetryManager;
 import io.trino.transaction.InMemoryTransactionManager;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
@@ -475,7 +476,8 @@ public class LocalQueryRunner
                 typeRegistry,
                 blockEncodingManager,
                 handleResolver,
-                exchangeManagerRegistry);
+                exchangeManagerRegistry,
+                new OpenTelemetryManager());
 
         catalogManager.registerGlobalSystemConnector(globalSystemConnector);
 

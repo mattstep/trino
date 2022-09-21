@@ -18,7 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.TestOpenTelemetryTracerFactory;
 import io.trino.client.FailureInfo;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -33,6 +36,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
+import io.trino.tracing.OpenTelemetryManager;
 import io.trino.transaction.TransactionManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
@@ -99,10 +103,16 @@ public class TestQueryStateMachine
     private static final Optional<QueryType> QUERY_TYPE = Optional.of(QueryType.SELECT);
 
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "=%s"));
+    private Tracer tracer = TestOpenTelemetryTracerFactory.getTestTracer();
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        try {
+            Thread.sleep(10000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         executor.shutdownNow();
         executor = null;
     }
@@ -534,7 +544,8 @@ public class TestQueryStateMachine
                 ticker,
                 metadata,
                 WarningCollector.NOOP,
-                QUERY_TYPE);
+                QUERY_TYPE,
+                tracer);
         stateMachine.setInputs(INPUTS);
         stateMachine.setOutput(OUTPUT);
         stateMachine.setColumns(OUTPUT_FIELD_NAMES, OUTPUT_FIELD_TYPES);

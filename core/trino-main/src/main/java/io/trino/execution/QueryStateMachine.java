@@ -24,6 +24,8 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.exchange.ExchangeInput;
 import io.trino.execution.QueryExecution.QueryOutputInfo;
@@ -48,6 +50,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.tracing.OpenTelemetryQueryStateChangeListener;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionInfo;
 import io.trino.transaction.TransactionManager;
@@ -162,6 +165,7 @@ public class QueryStateMachine
     private final WarningCollector warningCollector;
 
     private final Optional<QueryType> queryType;
+    private final Span parentQuerySpan;
 
     @GuardedBy("dynamicFiltersStatsSupplierLock")
     private Supplier<DynamicFiltersStats> dynamicFiltersStatsSupplier = () -> DynamicFiltersStats.EMPTY;
@@ -181,7 +185,8 @@ public class QueryStateMachine
             Ticker ticker,
             Metadata metadata,
             WarningCollector warningCollector,
-            Optional<QueryType> queryType)
+            Optional<QueryType> queryType,
+            Tracer tracer)
     {
         this.query = requireNonNull(query, "query is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
@@ -198,6 +203,12 @@ public class QueryStateMachine
         this.outputManager = new QueryOutputManager(executor);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
+
+        requireNonNull(tracer, "tracer is null");
+        this.parentQuerySpan = tracer.spanBuilder("query-state-machine")
+                .setAttribute("query-id", queryId.getId())
+                .startSpan();
+        queryState.addStateChangeListener(new OpenTelemetryQueryStateChangeListener(tracer, parentQuerySpan, "query-state"));
     }
 
     /**
@@ -216,7 +227,8 @@ public class QueryStateMachine
             Executor executor,
             Metadata metadata,
             WarningCollector warningCollector,
-            Optional<QueryType> queryType)
+            Optional<QueryType> queryType,
+            Tracer tracer)
     {
         return beginWithTicker(
                 existingTransactionId,
@@ -232,7 +244,8 @@ public class QueryStateMachine
                 Ticker.systemTicker(),
                 metadata,
                 warningCollector,
-                queryType);
+                queryType,
+                tracer);
     }
 
     static QueryStateMachine beginWithTicker(
@@ -249,7 +262,8 @@ public class QueryStateMachine
             Ticker ticker,
             Metadata metadata,
             WarningCollector warningCollector,
-            Optional<QueryType> queryType)
+            Optional<QueryType> queryType,
+            Tracer tracer)
     {
         // if there is an existing transaction, activate it
         existingTransactionId.ifPresent(transactionId -> {
@@ -281,7 +295,8 @@ public class QueryStateMachine
                 ticker,
                 metadata,
                 warningCollector,
-                queryType);
+                queryType,
+                tracer);
         queryStateMachine.addStateChangeListener(newState -> {
             QUERY_STATE_LOG.debug("Query %s is %s", queryStateMachine.getQueryId(), newState);
             if (newState.isDone()) {
@@ -947,6 +962,7 @@ public class QueryStateMachine
             committed.set(true);
             transitionToFinishedIfReady();
         }
+
         return true;
     }
 
@@ -969,12 +985,15 @@ public class QueryStateMachine
         queryStateTimer.endQuery();
 
         queryState.setIf(FINISHED, currentState -> !currentState.isDone());
+
+        parentQuerySpan.setAttribute("result", "finished").end();
     }
 
     public boolean transitionToFailed(Throwable throwable)
     {
         cleanupQueryQuietly();
         queryStateTimer.endQuery();
+        parentQuerySpan.setAttribute("result", "failed").end();
 
         // NOTE: The failure cause must be set before triggering the state change, so
         // listeners can observe the exception. This is safe because the failure cause
@@ -1019,6 +1038,8 @@ public class QueryStateMachine
     {
         cleanupQueryQuietly();
         queryStateTimer.endQuery();
+        parentQuerySpan.setAttribute("result", "cancelled").end();
+
 
         // NOTE: The failure cause must be set before triggering the state change, so
         // listeners can observe the exception. This is safe because the failure cause

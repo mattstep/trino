@@ -14,8 +14,10 @@
  */
 package io.trino.execution;
 
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
+import io.trino.TestOpenTelemetryTracerFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.plugin.base.security.DefaultSystemAccessControl;
@@ -134,7 +136,8 @@ public class TestCommitTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                TestOpenTelemetryTracerFactory.getTestTracer());
     }
 
     private static SessionBuilder sessionBuilder()

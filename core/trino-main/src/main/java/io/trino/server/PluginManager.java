@@ -44,8 +44,10 @@ import io.trino.spi.security.HeaderAuthenticatorFactory;
 import io.trino.spi.security.PasswordAuthenticatorFactory;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.session.SessionPropertyConfigurationManagerFactory;
+import io.trino.spi.tracing.OpenTelemetryFactory;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
+import io.trino.tracing.OpenTelemetryManager;
 
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
@@ -91,6 +93,7 @@ public class PluginManager
     private final BlockEncodingManager blockEncodingManager;
     private final HandleResolver handleResolver;
     private final AtomicBoolean pluginsLoading = new AtomicBoolean();
+    private final OpenTelemetryManager openTelemetryManager;
 
     @Inject
     public PluginManager(
@@ -108,7 +111,8 @@ public class PluginManager
             TypeRegistry typeRegistry,
             BlockEncodingManager blockEncodingManager,
             HandleResolver handleResolver,
-            ExchangeManagerRegistry exchangeManagerRegistry)
+            ExchangeManagerRegistry exchangeManagerRegistry,
+            OpenTelemetryManager openTelemetryManager)
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorFactory = requireNonNull(connectorFactory, "connectorFactory is null");
@@ -125,6 +129,7 @@ public class PluginManager
         this.blockEncodingManager = requireNonNull(blockEncodingManager, "blockEncodingManager is null");
         this.handleResolver = requireNonNull(handleResolver, "handleResolver is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
+        this.openTelemetryManager = requireNonNull(openTelemetryManager, "openTelemetryTracerProvider is null");
     }
 
     public void loadPlugins()
@@ -252,6 +257,11 @@ public class PluginManager
         for (ExchangeManagerFactory exchangeManagerFactory : plugin.getExchangeManagerFactories()) {
             log.info("Registering exchange manager %s", exchangeManagerFactory.getName());
             exchangeManagerRegistry.addExchangeManagerFactory(exchangeManagerFactory);
+        }
+
+        for (OpenTelemetryFactory openTelemetryFactory : plugin.getOpenTelemetryFactories()) {
+            log.info("Registering open telemetry implementation %s", openTelemetryFactory.getName());
+            openTelemetryManager.addOpenTelemetryFactory(openTelemetryFactory);
         }
     }
 

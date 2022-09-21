@@ -16,7 +16,9 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
+import io.trino.TestOpenTelemetryTracerFactory;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
@@ -109,7 +111,8 @@ public class TestResetSessionTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                TestOpenTelemetryTracerFactory.getTestTracer());
 
         getFutureValue(new ResetSessionTask(metadata, sessionPropertyManager).execute(
                 new ResetSession(QualifiedName.of(CATALOG_NAME, "baz")),

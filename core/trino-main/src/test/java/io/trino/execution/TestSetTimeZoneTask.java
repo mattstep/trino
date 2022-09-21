@@ -14,6 +14,7 @@
 package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.resourcegroups.ResourceGroupId;
@@ -251,7 +252,8 @@ public class TestSetTimeZoneTask
                 executor,
                 localQueryRunner.getMetadata(),
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                OpenTelemetry.noop().getTracer("test"));
     }
 
     private void executeSetTimeZone(SetTimeZone setTimeZone, QueryStateMachine stateMachine)

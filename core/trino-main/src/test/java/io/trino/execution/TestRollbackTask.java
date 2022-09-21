@@ -14,6 +14,7 @@
  */
 package io.trino.execution;
 
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
 import io.trino.execution.warnings.WarningCollector;
@@ -127,7 +128,8 @@ public class TestRollbackTask
                 executor,
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                OpenTelemetry.noop().getTracer("test"));
     }
 
     private static SessionBuilder sessionBuilder()

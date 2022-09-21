@@ -17,7 +17,9 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
+import io.trino.TestOpenTelemetryTracerFactory;
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
@@ -281,7 +283,8 @@ public class TestCreateMaterializedViewTask
                 directExecutor(),
                 metadata,
                 WarningCollector.NOOP,
-                Optional.empty());
+                Optional.empty(),
+                TestOpenTelemetryTracerFactory.getTestTracer());
     }
 
     private static class MockMetadata
